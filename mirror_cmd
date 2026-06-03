@@ -1,0 +1,3 @@
+oc mirror list operators --catalog bastion-sno.lab.ocp.lan:8443/ocp4/openshift4/redhat/redhat-operator-index:v4.20 | grep ptp
+
+skopeo list-tags docker://bastion-sno.lab.ocp.lan:8443/ocp4/openshift4

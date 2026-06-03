@@ -1,0 +1,179 @@
+Get Interface to increase MTU (OVN-Kubernetes)
+===============================================================
+srib@ocp-haproxy-4:~$ for i in $(oc get node -o jsonpath='{ .items[*].metadata.name  }'); do oc debug node/${i} -- chroot /host nmcli -g connection.interface-name c show ovs-if-phys0; done
+Starting pod/master1lab4srib-lab-ocplan-debug-sjvrv ...
+To use host binaries, run `chroot /host`
+bond0
+
+Removing debug pod ...
+Starting pod/master2lab4srib-lab-ocplan-debug-pl9hf ...
+To use host binaries, run `chroot /host`
+bond0
+
+Removing debug pod ...
+Starting pod/master3lab4srib-lab-ocplan-debug-gt44g ...
+To use host binaries, run `chroot /host`
+bond0
+
+Removing debug pod ...
+srib@ocp-haproxy-4:~$
+
+=======================================================================
+Verify Cluster MTU is 8400 and Node Interface MTU 8500
+=======================================================================
+srib@ocp-haproxy-4:~$ oc describe network.config cluster
+Name:         cluster
+Namespace:
+Labels:       <none>
+Annotations:  <none>
+API Version:  config.openshift.io/v1
+Kind:         Network
+Metadata:
+  Creation Timestamp:  2024-12-03T15:18:35Z
+  Generation:          4
+  Resource Version:    183031
+  UID:                 6548ea2a-21a4-4fca-a5f5-6f0fd9737649
+Spec:
+  Cluster Network:
+    Cidr:         10.124.0.0/14
+    Host Prefix:  23
+    Cidr:         fd03::/48
+    Host Prefix:  64
+  External IP:
+    Policy:
+  Network Type:  OVNKubernetes
+  Service Network:
+    172.31.0.0/16
+    fd04::/112
+Status:
+  Cluster Network:
+    Cidr:               10.124.0.0/14
+    Host Prefix:        23
+    Cidr:               fd03::/48
+    Host Prefix:        64
+  Cluster Network MTU:  8400
+  Network Type:         OVNKubernetes
+  Service Network:
+    172.31.0.0/16
+    fd04::/112
+Events:  <none>
+srib@ocp-haproxy-4:~$
+
+srib@ocp-haproxy-4:~$ oc get Network.operator.openshift.io cluster -oyaml | grep mtu
+      mtu: 8400
+srib@ocp-haproxy-4:~$
+srib@ocp-haproxy-4:~$ for i in $(oc get node -o jsonpath='{ .items[*].metadata.name  }'); do oc debug node/${i} -- chroot /host ip address show bond0; done
+Starting pod/master1lab4srib-lab-ocplan-debug-rjds7 ...
+To use host binaries, run `chroot /host`
+26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 8500 qdisc noqueue master ovs-system state UP group default qlen 1000
+    link/ether 50:7c:6f:4b:9f:58 brd ff:ff:ff:ff:ff:ff
+
+Removing debug pod ...
+Starting pod/master2lab4srib-lab-ocplan-debug-pxr9f ...
+To use host binaries, run `chroot /host`
+26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 8500 qdisc noqueue master ovs-system state UP group default qlen 1000
+    link/ether 50:7c:6f:4b:98:d0 brd ff:ff:ff:ff:ff:ff
+
+Removing debug pod ...
+Starting pod/master3lab4srib-lab-ocplan-debug-bt6jl ...
+To use host binaries, run `chroot /host`
+26: bond0: <BROADCAST,MULTICAST,MASTER,UP,LOWER_UP> mtu 8500 qdisc noqueue master ovs-system state UP group default qlen 1000
+    link/ether 50:7c:6f:4b:9e:d0 brd ff:ff:ff:ff:ff:ff
+Removing debug pod ...
+
+
+# OR if you did not create a bond interface then check for the interface name which was set during installation (ens3f3 is default)
+
+
+srib@ocp-haproxy-1:~/ocp-configMNO$ for i in $(oc get node -o jsonpath='{ .items[*].metadata.name  }'); do oc debug node/${i} -- chroot /host ip address show ens3f3; done
+Starting pod/ocp-cp-1lab1srib-lab-ocplan-debug-nrtd8 ...
+To use host binaries, run `chroot /host`
+9: ens3f3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 8500 qdisc mq master ovs-system state UP group default qlen 1000
+    link/ether 50:7c:6f:4b:9f:83 brd ff:ff:ff:ff:ff:ff
+    altname enp15s0f3
+
+Removing debug pod ...
+Starting pod/ocp-cp-2lab1srib-lab-ocplan-debug-86ppb ...
+To use host binaries, run `chroot /host`
+9: ens3f3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 8500 qdisc mq master ovs-system state UP group default qlen 1000
+    link/ether 50:7c:6f:4b:99:23 brd ff:ff:ff:ff:ff:ff
+    altname enp15s0f3
+
+Removing debug pod ...
+Starting pod/ocp-cp-3lab1srib-lab-ocplan-debug-g6mlx ...
+To use host binaries, run `chroot /host`
+9: ens3f3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 8500 qdisc mq master ovs-system state UP group default qlen 1000
+    link/ether 6c:fe:54:63:0b:6f brd ff:ff:ff:ff:ff:ff
+    altname enp15s0f3
+
+Removing debug pod ...
+srib@ocp-haproxy-1:~/ocp-configMNO$
+
+============================================================================
+monitoring.yaml
+============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |+
+    alertmanagerMain:
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+    prometheusK8s:
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+    prometheusOperator:
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+    k8sPrometheusAdapter:
+      dedicatedServiceMonitors:
+        enabled: true
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+    kubeStateMetrics:
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+    telemeterClient:
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+    openshiftStateMetrics:
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
+    thanosQuerier:
+      nodeSelector:
+        node-role.kubernetes.io/master : ""
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+        operator: Exists
